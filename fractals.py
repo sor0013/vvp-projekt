@@ -4,18 +4,28 @@ import matplotlib.widgets as w
 from numba import jit
 
 @jit(nopython=True)
-def mandelbrot_set(mal_set, Z, C, k):
-    for i in range(k):
-        Z = Z**2 + C
-        mal_set += 1 * (np.abs(Z) < 2)
+def mandelbrot_set(Z, C, k, n):
+    mal_set = np.zeros(Z.shape)
+    for i in range(n):
+        for j in range(n):
+            l = 0
+            while l < k and abs(Z[i, j]) < 2:
+                Z[i, j] = Z[i, j]**2 + C[i, j]
+                mal_set[i, j] += 1
+                l += 1
     
     return mal_set
 
 @jit(nopython=True)
-def julia_set(jul_set, Z, C, k):    
-    for i in range(k):
-        Z = Z**2 + C
-        jul_set += 1 * (np.abs(Z) < 2)
+def julia_set(Z, C, k, n):    
+    jul_set = np.zeros(Z.shape)
+    for i in range(n):
+        for j in range(n):
+            l = 0
+            while l < k and abs(Z[i, j]) < 2:
+                Z[i, j] = Z[i, j]**2 + C[i, j]
+                jul_set[i, j] += 1
+                l += 1
     
     return jul_set
 
@@ -28,40 +38,31 @@ která představuje množinu."""
         self.__r__ = 2.0
         self.__n__ = n
         self.__k__ = 50
-        self.__c_re__ = 0.0
-        self.__c_im__ = 0.0
+        self.__c_re__ = 1.0
+        self.__c_im__ = 1.0
         self.__col__ = "hot"
         self.__fig__, self.__ax__ = plt.subplots()
-        self.__im__ = self.__ax__.imshow(self.__mandelbrot_set__(), cmap="hot", extent=(-2.0, 2.0, -2.0, 2.0))
+        self.__im__ = self.__ax__.imshow(self.__mandelbrot_set__(-2.0, 2.0, -2.0, 2.0), cmap="hot", extent=(-2.0, 2.0, -2.0, 2.0))
         self.__fun_name__ = self.__mandelbrot_set__
         
-    def __mandelbrot_set__(self):
-        x_min = self.__S__["x"] - self.__r__
-        x_max = self.__S__["x"] + self.__r__
-        y_min = self.__S__["y"] - self.__r__
-        y_max = self.__S__["y"] + self.__r__
+    def __mandelbrot_set__(self, x_min, x_max, y_min, y_max):
         x = np.linspace(x_min, x_max, self.__n__)
         y = np.linspace(y_min, y_max, self.__n__)
         X, Y = np.meshgrid(x, y)
         C = X + Y*1j
         Z = np.zeros(C.shape, dtype=complex)
-        mal_set = np.zeros(Z.shape)
+       
     
-        return mandelbrot_set(mal_set, Z, C, self.__k__)
+        return mandelbrot_set(Z, C, self.__k__, self.__n__)
     
-    def __julia_set__(self):
-        x_min = self.__S__["x"] - self.__r__
-        x_max = self.__S__["x"] + self.__r__
-        y_min = self.__S__["y"] - self.__r__
-        y_max = self.__S__["y"] + self.__r__
-        x = np.linspace(x_min, x_max,self.__n__)
+    def __julia_set__(self, x_min, x_max, y_min, y_max):
+        x = np.linspace(x_min, x_max, self.__n__)
         y = np.linspace(y_min, y_max, self.__n__)
         X, Y = np.meshgrid(x, y)
         Z = X + Y*1j
         c = self.__c_re__ + self.__c_im__*1j
         C = np.ones(Z.shape)*c
-        jul_set = np.zeros(Z.shape)
-        return julia_set(jul_set, Z, C, self.__k__)
+        return julia_set(Z, C, self.__k__, self.__n__)
     
     """Callback funkce pro radio buttony,
     které nastavují barevné mapování."""
@@ -94,25 +95,27 @@ která představuje množinu."""
         self.__c_re__ = float(c_re)
         
     def __set_c_im__(self, c_im):
-        self.__c_re__ = float(c_im)
+        self.__c_im__ = float(c_im)
         
     def __update__(self, event):
         x_min, x_max = self.__S__["x"] - self.__r__, self.__S__["x"] + self.__r__
         y_min, y_max = self.__S__["y"] - self.__r__, self.__S__["y"] + self.__r__
-        M = self.__fun_name__()
+        M = self.__fun_name__(x_min, x_max, y_min, y_max)
         self.__im__ = self.__ax__.imshow(M, cmap=self.__col__, extent=(x_min, x_max, y_min, y_max))
         plt.draw()
         
     def __update_re__(self, event):
         x_min, x_max = self.__S__["x"] - self.__r__, self.__S__["x"] + self.__r__
         y_min, y_max = self.__S__["y"] - self.__r__, self.__S__["y"] + self.__r__
-        M = self.__fun_name__()
+        M = self.__fun_name__(x_min, x_max, y_min, y_max)
         self.__im__ = self.__ax__.imshow(M, cmap=self.__col__, extent=(x_min, x_max, y_min, y_max))
         plt.draw()
         
     def __update_im__(self, event):
-        M = self.__fun_name__()
-        self.__im__ = self.__ax__.imshow(M, cmap=self.__col__)
+        x_min, x_max = self.__S__["x"] - self.__r__, self.__S__["x"] + self.__r__
+        y_min, y_max = self.__S__["y"] - self.__r__, self.__S__["y"] + self.__r__
+        M = self.__fun_name__(x_min, x_max, y_min, y_max)
+        self.__im__ = self.__ax__.imshow(M, cmap=self.__col__, extent=(x_min, x_max, y_min, y_max))
         plt.draw()
         
     def __zoom__(self, event):
@@ -122,12 +125,12 @@ která představuje množinu."""
         elif event.button == 'down':
             # Oddalování fraktálu
             self.__r__ *= 2.0
-        M = self.__fun_name__()
+        
         x_min, x_max = self.__S__["x"] - self.__r__, self.__S__["x"] + self.__r__
         y_min, y_max = self.__S__["y"] - self.__r__, self.__S__["y"] + self.__r__
+        M = self.__fun_name__(x_min, x_max, y_min, y_max)
         self.__im__.set_data(M)
-        self.__ax__.set_xlim(x_min, x_max)
-        self.__ax__.set_ylim(y_min, y_max)
+        self.__im__.set_extent((x_min, x_max, y_min, y_max))
         plt.draw()
     
     def __on_key__(self, event):
@@ -153,19 +156,19 @@ která představuje množinu."""
         elif direction == 'right':
             self.__S__["x"] += (0.1*self.__r__)
         # Generování nového fraktálu a aktualizace zobrazení
-        M = self.__fun_name__()
+       
         x_min, x_max = self.__S__["x"] - self.__r__, self.__S__["x"] + self.__r__
         y_min, y_max = self.__S__["y"] - self.__r__, self.__S__["y"] + self.__r__
+        M = self.__fun_name__(x_min, x_max, y_min, y_max)
         self.__im__.set_data(M)
-        self.__ax__.set_xlim(x_min, x_max)
-        self.__ax__.set_ylim(y_min, y_max)
+        self.__im__.set_extent((x_min, x_max, y_min, y_max))
         plt.draw()
         
     def mand_fractal(self):
         x_min, x_max = self.__S__["x"] - self.__r__, self.__S__["x"] + self.__r__
         y_min, y_max = self.__S__["y"] - self.__r__, self.__S__["y"] + self.__r__
         self.__fun_name__ = self.__mandelbrot_set__
-        self.__im__ = self.__ax__.imshow(self.__fun_name__(), cmap="hot", extent=(x_min, x_max, y_min, y_max))
+        self.__im__ = self.__ax__.imshow(self.__fun_name__(x_min, x_max, y_min, y_max), cmap="hot", extent=(x_min, x_max, y_min, y_max))
         plt.subplots_adjust(bottom=0.2)
         
         text_box_ax = plt.axes([0.2, 0.1, 0.2, 0.05])
@@ -187,7 +190,7 @@ která představuje množinu."""
         x_min, x_max = self.__S__["x"] - self.__r__, self.__S__["x"] + self.__r__
         y_min, y_max = self.__S__["y"] - self.__r__, self.__S__["y"] + self.__r__
         self.__fun_name__ = self.__julia_set__
-        self.im = self.__ax__.imshow(self.__julia_set__(), cmap="hot", extent=(x_min, x_max, y_min, y_max))
+        self.__im__ = self.__ax__.imshow(self.__julia_set__(x_min, x_max, y_min, y_max), cmap="hot", extent=(x_min, x_max, y_min, y_max))
         plt.subplots_adjust(bottom=0.2)
         
         text_box_it = plt.axes([0.2, 0.1, 0.07, 0.05])
@@ -224,4 +227,4 @@ která představuje množinu."""
 
 if __name__ == "__main__":
     test = Fractal(1000)
-    test.jul_fractal()
+    test.mand_fractal()
